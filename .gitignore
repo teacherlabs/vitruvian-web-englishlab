@@ -30,6 +30,6 @@ coverage
 *.tsbuildinfo
 
 /bin/Ramps.json
-/public/spritesheets
+# Sprite assets are served directly from public/ and must be deployed.
 /src/data/packed.json
 !/src/data/packed.json

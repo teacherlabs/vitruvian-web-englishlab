@@ -3,6 +3,7 @@ import {ItemLayer} from "./ItemLayer";
 import {ItemMaterial} from "./ItemMaterial";
 import {ItemCredits} from "./ItemCredits";
 import {ItemColors} from "./ItemColors";
+import {getSpriteImagePath} from "@/services/SpriteAssetPath";
 
 /**
  * Represents an item from the packed.json
@@ -32,7 +33,7 @@ export class Item {
         this.sizes = itemData.sizes || {}
         this.animations = itemData.poses
         this.colors = new ItemColors(this)
-        this.preview = itemData.preview
+        this.preview = getSpriteImagePath(itemData.preview)
 
         Object.entries(itemData.layers).forEach(([layerIndex, layerData]) => {
             this.layers[layerIndex] = new ItemLayer(this, layerIndex, layerData);
@@ -67,7 +68,7 @@ export class Item {
      * Get base path for the image
      */
     getPath():string {
-        return '/spritesheets/' + this.path
+        return getSpriteImagePath(`spritesheets/${this.path}`)
     }
 
     isAllowed():boolean {

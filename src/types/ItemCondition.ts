@@ -1,5 +1,6 @@
 import {ItemAnimation} from "./ItemAnimation";
 import {ItemLayer} from "./ItemLayer";
+import {getSpriteImagePath} from "@/services/SpriteAssetPath";
 
 export class ItemCondition {
     layer:ItemLayer
@@ -16,10 +17,10 @@ export class ItemCondition {
 
     getPath() {
         if (!this.path || this.path === '.') {
-            return this.layer.getPath()
+            return getSpriteImagePath(this.layer.getPath())
         }
 
-        return `${this.layer.getPath()}/${this.path}`.replace('/./', '/')
+        return getSpriteImagePath(`${this.layer.getPath()}/${this.path}`)
     }
 
     async load() {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
 import type { Item } from '@/types/Item'
+import { getSpriteImagePath } from '@/services/SpriteAssetPath'
 
 const props = defineProps<{
   item: Item
@@ -30,7 +31,7 @@ function drawThumbnail() {
     context.drawImage(image, 0, sourceY, frameSize, frameSize, 0, 0, frameSize, frameSize)
   }
   image.onerror = () => emit('invalid', props.item)
-  image.src = props.item.preview.replace('/./', '/')
+  image.src = getSpriteImagePath(props.item.preview)
 }
 
 onMounted(drawThumbnail)
