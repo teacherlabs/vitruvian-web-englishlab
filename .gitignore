@@ -32,3 +32,4 @@ coverage
 /bin/Ramps.json
 /public/spritesheets
 /src/data/packed.json
+!/src/data/packed.json

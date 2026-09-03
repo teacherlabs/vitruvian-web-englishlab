@@ -67,7 +67,7 @@ export class Item {
      * Get base path for the image
      */
     getPath():string {
-        return 'spritesheets/' + this.path
+        return '/spritesheets/' + this.path
     }
 
     isAllowed():boolean {

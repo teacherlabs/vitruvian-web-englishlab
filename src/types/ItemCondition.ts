@@ -15,7 +15,11 @@ export class ItemCondition {
     }
 
     getPath() {
-        return this.layer.getPath() + '/' + this.path;
+        if (!this.path || this.path === '.') {
+            return this.layer.getPath()
+        }
+
+        return `${this.layer.getPath()}/${this.path}`.replace('/./', '/')
     }
 
     async load() {

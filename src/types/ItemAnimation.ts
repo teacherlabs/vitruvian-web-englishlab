@@ -14,6 +14,7 @@ export class ItemAnimation {
     originalCanvas:HTMLCanvasElement|null = null
     originalContext:CanvasRenderingContext2D|null = null
     loaded:boolean = false;
+    failed:boolean = false;
     colorized:boolean = false;
     isMask:boolean = false
 
@@ -31,14 +32,30 @@ export class ItemAnimation {
      * Load the sprite sheet and create canvases
      */
     async load() {
-        if(!this.loaded) {
+        if(!this.loaded && !this.failed) {
             this.loaded = true
             this.canvas = document.createElement('canvas')
             this.image = new Image()
             this.image.crossOrigin = 'Anonymous' // to avoid CORS if used with Canvas
-            this.image.src = this.getPath()
-            await this.image.decode()
-            this.initCanvas()
+            const path = this.getPath()
+
+            try {
+                await new Promise<void>((resolve, reject) => {
+                    const image = this.image
+                    if (!image) {
+                        reject(new Error(path))
+                        return
+                    }
+                    image.addEventListener('load', () => resolve(), {once: true})
+                    image.addEventListener('error', () => reject(new Error(path)), {once: true})
+                    image.src = path
+                })
+                await this.image.decode()
+                this.initCanvas()
+            } catch (error) {
+                this.failed = true
+                console.warn(`Skipping missing sprite layer ${this.item.id}.${this.layer.id}: ${path}`, error)
+            }
         }
     }
 

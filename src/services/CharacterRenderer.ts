@@ -74,19 +74,25 @@ export class CharacterRenderer extends Renderer {
 
     drawAnimations(item: Item, layer: string): void {
         for (const animation of item.animations) {
-            this.drawAnimation(this.animations[animation].canvas.value, item, layer, animation)
+            const target = this.animations[animation]?.canvas?.value
+            if (target) {
+                this.drawAnimation(target, item, layer, animation)
+            }
         }
 
         if (item.animations.indexOf('backslash') === -1 && item.animations.indexOf('slash') >= 0) {
-            this.drawAnimation(this.animations['backslash'].canvas.value, item, layer, 'backslash', true)
+            const target = this.animations['backslash']?.canvas?.value
+            if (target) this.drawAnimation(target, item, layer, 'backslash', true)
         }
 
         if (item.animations.indexOf('whip') === -1 && item.animations.indexOf('slash') >= 0) {
-            this.drawAnimation(this.animations['whip'].canvas.value, item, layer, 'whip', true)
+            const target = this.animations['whip']?.canvas?.value
+            if (target) this.drawAnimation(target, item, layer, 'whip', true)
         }
 
         if (item.animations.indexOf('rod') === -1 && item.animations.indexOf('thrust') >= 0) {
-            this.drawAnimation(this.animations['rod'].canvas.value, item, layer, 'rod', true)
+            const target = this.animations['rod']?.canvas?.value
+            if (target) this.drawAnimation(target, item, layer, 'rod', true)
         }
     }
 
@@ -114,9 +120,11 @@ export class CharacterRenderer extends Renderer {
 
         const size: number = item.getPartSize(baseAnimationKey)
         const canvasTileSize: number = this.collection.getTileSize(animationKey)
-        const baseAnimation: ItemAnimation | undefined = item.layers[layer].getAnimation(baseAnimationKey);
+        const itemLayer = item.layers[layer]
+        const baseAnimation: ItemAnimation | undefined = itemLayer?.getAnimation(baseAnimationKey);
 
-        if (!baseAnimation || !baseAnimation.canvas) {
+        if (!itemLayer || !baseAnimation || !baseAnimation.canvas || baseAnimation.failed) {
+            console.warn(`Skipping missing character layer: ${item.id}.${layer}.${baseAnimationKey}`)
             return
         }
 

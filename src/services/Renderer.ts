@@ -50,9 +50,9 @@ export abstract class Renderer {
         this.clearCanvases()
         const queue: { [key: number]: { item: Item, layer: string }[] } = this.collection.createRenderQueue()
 
-        for (const z in queue) {
-            for (const item in queue[z]) {
-                this.drawAnimations(queue[z][item].item, queue[z][item].layer)
+        for (const z of Object.keys(queue).sort((a, b) => Number(a) - Number(b))) {
+            for (const renderItem of queue[Number(z)]) {
+                this.drawAnimations(renderItem.item, renderItem.layer)
             }
         }
     }

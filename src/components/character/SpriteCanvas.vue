@@ -23,13 +23,12 @@ onMounted(() => {
 })
 </script>
 <template>
-  <div class="grid grid-cols-[80px_1fr] gap-5" @click="zoomed = !zoomed" style="image-rendering: pixelated">
-    <h2 class="font-bold text-slate-300">Walk</h2>
-    <div class="bg-slate-300 rounded max-w-min" :style="{zoom: (zoomed ? '200%' : '100%')}">
-      <canvas :ref="animations.walk" width="512" height="256"></canvas>
+  <div class="flex items-center justify-center" @click="zoomed = !zoomed" style="image-rendering: pixelated">
+    <div class="bg-white rounded-lg max-w-full" :style="{zoom: (zoomed ? '150%' : '100%')}">
+    <canvas :ref="animations.walk" width="512" height="256"></canvas>
     </div>
 
-    <h2 class="font-bold text-slate-300">Shoot</h2>
+    <div class="hidden">
     <div class="bg-slate-300 rounded max-w-min" :style="{zoom: (zoomed ? '200%' : '100%')}">
       <canvas :ref="animations.shoot" width="832" height="256"></canvas>
     </div>
@@ -72,6 +71,7 @@ onMounted(() => {
     <h2 class="font-bold text-slate-300">Idle</h2>
     <div class="bg-slate-300 rounded max-w-min" :style="{zoom: (zoomed ? '200%' : '100%')}">
     <canvas :ref="animations.idle" width="64" height="256"></canvas>
+    </div>
     </div>
   </div>
 </template>
