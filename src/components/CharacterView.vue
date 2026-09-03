@@ -503,6 +503,7 @@ onUnmounted(() => {
 
 .category-tabs {
   min-height: 0;
+  margin-left: 1px;
   overflow-y: auto;
   overscroll-behavior: contain;
   display: flex;
