@@ -23,6 +23,18 @@ const collection = new CharacterCollection(colors)
 collection.initItems(rawData)
 
 const renderer = new CharacterRenderer(collection)
+const allowedBodyIds = new Set([
+  'anatomy.body.teen',
+  'anatomy.body.zombie',
+  'anatomy.body.skeleton',
+  'anatomy.shadow.shadow',
+])
+const defaultConfig = {
+  'anatomy.body.teen': { colors: { primary: 'ivory' } },
+  'clothes.torso.scoop_shirt': { colors: { primary: 'ivory' } },
+  'clothes.legs.pants': { colors: { primary: 'blue' } },
+  'clothes.feet.shoes': { colors: { primary: 'black' } },
+}
 const refresh = ref(0)
 const selectedType = ref('anatomy.body')
 const selectedGroup = ref('_')
@@ -104,6 +116,7 @@ const options = computed(() => {
       if (
         !isRenderableItem(item) ||
         invalidItemIds.value.has(item.id) ||
+        (selectedType.value === 'anatomy.body' && !allowedBodyIds.has(item.id)) ||
         (selectedType.value === 'anatomy.head' && item.id.endsWith('_child')) ||
         excludedItemNames.has(item.id.split('.').at(-1) ?? '')
       ) continue
@@ -149,6 +162,10 @@ function markInvalid(item: Item) {
 function getItemCategory(item: Item): string {
   const itemType = item.id.split('.').slice(0, 2).join('.')
   return tabs.find((tab) => tab.type === itemType || tab.types?.includes(itemType))?.label ?? 'Accessory'
+}
+
+function getItemName(item: Item): string {
+  return item.id === 'anatomy.body.teen' ? 'Body' : item.name
 }
 
 async function editEquippedItem(item: Item) {
@@ -335,9 +352,7 @@ async function loadCharacterMessage(event: MessageEvent) {
 
 onMounted(async () => {
   window.addEventListener('message', loadCharacterMessage)
-  const bodyItems = collection.getItems('anatomy.body') as { [key: string]: Item } | undefined
-  const defaultBody = Object.values(bodyItems ?? {}).find((body) => isRenderableItem(body))
-  if (defaultBody) await collection.select(defaultBody)
+  await collection.initSelected(defaultConfig)
   renderer.draw()
   drawPortrait()
 })
@@ -383,11 +398,11 @@ onUnmounted(() => {
             :key="item.id"
             class="preview-button"
             :class="{ selected: selectedItemId === item.id }"
-            :title="item.name"
+            :title="getItemName(item)"
             @click="selectItem(item)"
           >
             <SpriteThumbnail :item="item" @invalid="markInvalid" />
-            <span>{{ item.name }}</span>
+            <span>{{ getItemName(item) }}</span>
           </button>
         </div>
       </div>
