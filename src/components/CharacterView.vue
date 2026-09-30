@@ -42,6 +42,18 @@ const selectedItemId = ref('')
 const activeItem: Ref<Item | undefined> = ref()
 const activeMaterial = ref('')
 const currentPose = ref('walk')
+const poseIcons: { [key: string]: string } = {
+  walk: 'mdi-walk',
+  thrust: 'mdi-sword-cross',
+  slash: 'mdi-sword',
+  backslash: 'mdi-sword',
+  whip: 'mdi-lasso',
+  shoot: 'mdi-bow-arrow',
+  spell: 'mdi-magic-staff',
+  rod: 'mdi-fishing',
+  hurt: 'mdi-heart-broken',
+}
+const poseIcon = computed(() => poseIcons[currentPose.value] ?? 'mdi-walk')
 const spriteCanvas = ref()
 const portraitCanvas = ref<HTMLCanvasElement>()
 const invalidItemIds = ref(new Set<string>())
@@ -260,31 +272,103 @@ async function applyColor(colorId: string) {
   refresh.value++
 }
 
+// Weapon-like equipment categories, in priority order, that may only have art for an
+// action pose (e.g. thrust/slash/whip) and no "walk" holding pose at all. When one of
+// these is equipped, the Live Preview switches to that pose instead of "walk" so the
+// item is actually visible, instead of silently drawing nothing.
+const weaponCategoryOrder = ['swords', 'bows', 'misc', 'spears', 'staffs', 'tools', 'shields', 'bow_accessory', 'staff_accessory']
+// Preferred order to pick a fallback pose from an item's own supported poses.
+const posePriority = ['thrust', 'slash', 'backslash', 'whip', 'shoot', 'spell', 'rod', 'hurt']
+
+function getPreviewPose(): string {
+  const equipment = collection.selected.equipment
+  if (!equipment) return 'walk'
+
+  for (const category of weaponCategoryOrder) {
+    const item = equipment[category]
+    if (item && item.animations && item.animations.indexOf('walk') === -1) {
+      return posePriority.find((pose) => item.animations.indexOf(pose) !== -1) ?? item.animations[0] ?? 'walk'
+    }
+  }
+
+  return 'walk'
+}
+
 function drawPortrait() {
-  const sourceCanvas = renderer.getAnimationCanvas('walk').value as HTMLCanvasElement | undefined
+  const pose = getPreviewPose()
+  currentPose.value = pose
+  const sourceCanvas = renderer.getAnimationCanvas(pose).value as HTMLCanvasElement | undefined
   const targetCanvas = portraitCanvas.value
   if (!sourceCanvas || !targetCanvas) return
 
   const context = targetCanvas.getContext('2d')
   if (!context) return
 
-  const scale = 4
-  const frameSize = 64
-  targetCanvas.width = frameSize * scale
-  targetCanvas.height = frameSize * scale
+  // Equipping large items (e.g. bows, big swords) increases the sprite tile size
+  // (see CharacterCollection.getTileSize), so the south-facing frame must be
+  // cropped using that dynamic size rather than assuming the standard 64px tile.
+  const displaySize = 256
+  const baselineSize = 64
+  const frameSize = collection.getTileSize(pose)
+  targetCanvas.width = displaySize
+  targetCanvas.height = displaySize
   context.imageSmoothingEnabled = false
   context.clearRect(0, 0, targetCanvas.width, targetCanvas.height)
-  context.drawImage(
-    sourceCanvas,
-    0,
-    frameSize * 2,
-    frameSize,
-    frameSize,
-    0,
-    0,
-    frameSize * scale,
-    frameSize * scale,
-  )
+
+  const frameCanvas = document.createElement('canvas')
+  frameCanvas.width = frameSize
+  frameCanvas.height = frameSize
+  const frameContext = frameCanvas.getContext('2d')
+  if (!frameContext) return
+  frameContext.imageSmoothingEnabled = false
+  // Row 2 of the 4-directional sheet is the south/front-facing frame, consistent
+  // across all pose animations that have 4 rows (walk, thrust, slash, shoot, etc).
+  frameContext.drawImage(sourceCanvas, 0, frameSize * 2, frameSize, frameSize, 0, 0, frameSize, frameSize)
+
+  // Larger tiles reserve extra empty padding around the character to fit oversized
+  // weapon art, which otherwise shrinks the apparent character size in the preview.
+  // Auto-crop to the actual drawn (non-transparent) pixels so the character keeps a
+  // consistent apparent size no matter which item's tile size is currently in effect.
+  const bounds = getOpaquePixelBounds(frameContext, frameSize)
+  const padding = 6
+  let sx = 0
+  let sy = 0
+  let cropSize = frameSize
+  if (bounds) {
+    const cropX0 = Math.max(0, bounds.minX - padding)
+    const cropY0 = Math.max(0, bounds.minY - padding)
+    const cropX1 = Math.min(frameSize, bounds.maxX + padding + 1)
+    const cropY1 = Math.min(frameSize, bounds.maxY + padding + 1)
+    // Never zoom in tighter than the standard 64px tile so small items look normal.
+    cropSize = Math.min(frameSize, Math.max(cropX1 - cropX0, cropY1 - cropY0, baselineSize))
+    const centerX = (cropX0 + cropX1) / 2
+    const centerY = (cropY0 + cropY1) / 2
+    sx = Math.max(0, Math.min(frameSize - cropSize, centerX - cropSize / 2))
+    sy = Math.max(0, Math.min(frameSize - cropSize, centerY - cropSize / 2))
+  }
+
+  context.drawImage(frameCanvas, sx, sy, cropSize, cropSize, 0, 0, displaySize, displaySize)
+}
+
+function getOpaquePixelBounds(context: CanvasRenderingContext2D, size: number) {
+  const { data } = context.getImageData(0, 0, size, size)
+  let minX = size
+  let minY = size
+  let maxX = -1
+  let maxY = -1
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const alpha = data[(y * size + x) * 4 + 3]
+      if (alpha > 10) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  }
+  if (maxX < 0) return null
+  return { minX, minY, maxX, maxY }
 }
 
 function colorStyle(paletteValue: number[][]) {
@@ -435,7 +519,7 @@ onUnmounted(() => {
           <p class="eyebrow">Your character</p>
           <h2>Live preview</h2>
         </div>
-        <span class="pose-pill"><i class="mdi mdi-walk"></i> {{ currentPose }}</span>
+        <span class="pose-pill"><i class="mdi" :class="poseIcon"></i> {{ currentPose }}</span>
       </div>
 
       <div class="canvas-stage">
