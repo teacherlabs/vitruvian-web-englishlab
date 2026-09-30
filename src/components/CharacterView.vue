@@ -31,7 +31,7 @@ const allowedBodyIds = new Set([
 ])
 const defaultConfig = {
   'anatomy.body.teen': { colors: { primary: 'ivory' } },
-  'clothes.torso.scoop_shirt': { colors: { primary: 'ivory' } },
+  'clothes.torso.scoop_shirt': { colors: { primary: 'white' } },
   'clothes.legs.pants': { colors: { primary: 'blue' } },
   'clothes.feet.shoes': { colors: { primary: 'black' } },
 }
@@ -76,7 +76,7 @@ const tabs: CategoryTab[] = [
     type: 'clothes.hat',
     types: ['clothes.hat', 'clothes.head_coverings', 'clothes.helmet_accessory', 'clothes.helmet_visor'],
   },
-  { label: 'Arms', icon: 'arm-flex', type: 'clothes.arms', types: ['clothes.arms', 'clothes.hands', 'clothes.shoulders', 'clothes.wrists'] },
+  { label: 'Arms', icon: 'arm-flex', type: 'clothes.arms', types: ['clothes.arms', 'clothes.hands', 'clothes.wrists'] },
   {
     label: 'Torso',
     icon: 'tshirt-crew',
@@ -159,6 +159,12 @@ function markInvalid(item: Item) {
   invalidItemIds.value = new Set(invalidItemIds.value).add(item.id)
 }
 
+function isItemIncompatible(item: Item): boolean {
+  // `refresh` is tracked so this recomputes whenever body/anatomy selections change.
+  refresh.value
+  return !item.isAllowed()
+}
+
 function getItemCategory(item: Item): string {
   const itemType = item.id.split('.').slice(0, 2).join('.')
   return tabs.find((tab) => tab.type === itemType || tab.types?.includes(itemType))?.label ?? 'Accessory'
@@ -195,12 +201,25 @@ function removeItem(item: Item) {
 }
 
 function chooseTab(type: string) {
-  activeItem.value = undefined
-  activeMaterial.value = ''
   selectedType.value = type
-  const groups = options.value
-  selectedGroup.value = Object.keys(groups)[0] ?? '_'
-  selectedItemId.value = ''
+  const tab = selectedTab.value
+  const itemTypes = tab.types ?? [type]
+  const equippedInTab = itemTypes
+    .map((itemType) => collection.getSelected(itemType))
+    .find((item): item is Item => Boolean(item))
+
+  if (equippedInTab) {
+    selectedGroup.value = equippedInTab.group || '_'
+    selectedItemId.value = equippedInTab.id
+    activeItem.value = equippedInTab
+    activeMaterial.value = Object.keys(equippedInTab.materials)[0] ?? ''
+  } else {
+    const groups = options.value
+    selectedGroup.value = Object.keys(groups)[0] ?? '_'
+    selectedItemId.value = ''
+    activeItem.value = undefined
+    activeMaterial.value = ''
+  }
   renderer.draw()
   drawPortrait()
 }
@@ -355,6 +374,7 @@ onMounted(async () => {
   await collection.initSelected(defaultConfig)
   renderer.draw()
   drawPortrait()
+  refresh.value++
 })
 
 onUnmounted(() => {
@@ -397,11 +417,12 @@ onUnmounted(() => {
             v-for="item in previewItems"
             :key="item.id"
             class="preview-button"
-            :class="{ selected: selectedItemId === item.id }"
-            :title="getItemName(item)"
+            :class="{ selected: selectedItemId === item.id, incompatible: isItemIncompatible(item) }"
+            :title="isItemIncompatible(item) ? `${getItemName(item)} — not visible on the current body type` : getItemName(item)"
             @click="selectItem(item)"
           >
             <SpriteThumbnail :item="item" @invalid="markInvalid" />
+            <i v-if="isItemIncompatible(item)" class="mdi mdi-alert-circle incompatible-badge"></i>
             <span>{{ getItemName(item) }}</span>
           </button>
         </div>
@@ -462,6 +483,7 @@ onUnmounted(() => {
           v-for="item in equippedItems"
           :key="item.id"
           class="equipped-item"
+          :class="{ incompatible: isItemIncompatible(item) }"
           role="button"
           tabindex="0"
           @click="editEquippedItem(item)"
@@ -472,6 +494,9 @@ onUnmounted(() => {
           <div class="equipped-details">
             <span class="equipped-category">{{ getItemCategory(item) }}</span>
             <strong :title="item.name">{{ item.name }}</strong>
+            <span v-if="isItemIncompatible(item)" class="equipped-warning" title="This item has no artwork for your current body type, so it won't be visible.">
+              <i class="mdi mdi-alert-circle"></i> Not visible on this body
+            </span>
           </div>
           <button class="remove-button" :aria-label="`Remove ${item.name}`" :title="`Remove ${item.name}`" @click.stop="removeItem(item)">
             <i class="mdi mdi-close"></i>
@@ -564,10 +589,13 @@ onUnmounted(() => {
 h2 { margin: 0; color: #5a4660; font-size: 1.35rem; }
 select { max-width: 48%; padding: 9px 28px 9px 10px; border: 2px solid #efd6d5; border-radius: 12px; background: #fff8f1; color: #66536a; font-weight: 700; }
 .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 10px; margin-top: 20px; }
-.preview-button { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 5px; padding: 7px; border: 3px solid #f2e4df; border-radius: 15px; background: #fffaf7; color: #715d72; font-size: 0.72rem; font-weight: 700; }
+.preview-button { display: flex; position: relative; min-width: 0; flex-direction: column; align-items: center; gap: 5px; padding: 7px; border: 3px solid #f2e4df; border-radius: 15px; background: #fffaf7; color: #715d72; font-size: 0.72rem; font-weight: 700; }
 .preview-button:hover, .preview-button.selected { border-color: #b9a5d8; background: #f1ecfb; }
+.preview-button.incompatible { border-color: #f0d5a8; background: #fff6e8; opacity: 0.75; }
+.preview-button.incompatible.selected { border-color: #e0a94c; background: #fdecc8; }
 .preview-button img { width: 100%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; border-radius: 9px; background: #f9e9e1; }
 .preview-button span { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.incompatible-badge { position: absolute; top: 4px; right: 4px; color: #d68a1c; font-size: 1rem; text-shadow: 0 0 3px #fff; }
 .preview-card { display: flex; flex-direction: column; background: #fffdfc; }
 .pose-pill { padding: 7px 11px; border-radius: 12px; background: #e8f3ef; color: #5b927f; font-size: 0.75rem; font-weight: 800; }
 .canvas-stage { display: flex; flex: 1; min-height: 220px; align-items: center; justify-content: center; margin: 18px 0; border: 3px dashed #efd6d5; border-radius: 20px; background-color: #fff4ec; background-image: radial-gradient(#f0d9d3 1px, transparent 1px); background-size: 14px 14px; overflow: auto; }
@@ -590,10 +618,12 @@ select { max-width: 48%; padding: 9px 28px 9px 10px; border: 2px solid #efd6d5; 
 .equipped-list { display: grid; gap: 9px; min-height: 0; margin-top: 18px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: #b9c5e2 transparent; }
 .equipped-item { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 7px; border: 2px solid #dce2f2; border-radius: 14px; background: #fff; cursor: pointer; transition: .15s ease; }
 .equipped-item:hover, .equipped-item:focus-visible { border-color: #b9a5d8; box-shadow: 0 3px 0 #d8cdeb; outline: none; transform: translateY(-1px); }
+.equipped-item.incompatible { border-color: #f0d5a8; background: #fffaf0; }
 .equipped-item :deep(.sprite-thumbnail) { width: 48px; height: 48px; flex: 0 0 48px; }
 .equipped-details { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .equipped-category { color: #9a8cab; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; }
 .equipped-details strong { overflow: hidden; color: #6b5c7c; font-size: 0.8rem; text-overflow: ellipsis; white-space: nowrap; }
+.equipped-warning { display: flex; align-items: center; gap: 3px; color: #b3791b; font-size: 0.66rem; font-weight: 700; }
 .remove-button { display: flex; width: 26px; height: 26px; flex: 0 0 26px; align-items: center; justify-content: center; border-radius: 50%; color: #b38e9e; }
 .remove-button:hover { background: #f9dede; color: #c26076; }
 .empty-layers { display: flex; gap: 8px; align-items: center; margin-top: 24px; color: #887d9a; font-size: 0.82rem; font-weight: 700; }
